@@ -177,6 +177,8 @@ void MonteCarloParallel(double (*f)(point_t *),
     double sequential_start = 0.0;
     double parallel_time = 0.0;
     double parallel_start = 0.0;
+    double allreduce_time = 0.0;
+    double allreduce_start = 0.0;
 
     double start = MPI_Wtime();
 
@@ -211,8 +213,10 @@ void MonteCarloParallel(double (*f)(point_t *),
             parallel_time += MPI_Wtime() - parallel_start;
         }
 
+        if (myrank != 0) allreduce_start = MPI_Wtime();
         MPI_Allreduce(&local_sum, &global_tmp, 1, MPI_DOUBLE, 
                       MPI_SUM, MPI_COMM_WORLD);
+        if (myrank != 0) allreduce_time += MPI_Wtime() - allreduce_start;
         global_sum += global_tmp;
         mc_res = vol * global_sum / n;
         local_sum = 0.0;
@@ -220,10 +224,13 @@ void MonteCarloParallel(double (*f)(point_t *),
     double time = MPI_Wtime() - start;
     double global_time;
     double global_parallel;
+    double global_allreduce;
 
     MPI_Reduce(&time, &global_time, 1, MPI_DOUBLE, 
                MPI_MAX, 0, MPI_COMM_WORLD);
     MPI_Reduce(&parallel_time, &global_parallel, 1, MPI_DOUBLE, 
+               MPI_MAX, 0, MPI_COMM_WORLD);
+    MPI_Reduce(&allreduce_time, &global_allreduce, 1, MPI_DOUBLE, 
                MPI_MAX, 0, MPI_COMM_WORLD);
 
     if (myrank == 0) {
@@ -234,6 +241,7 @@ void MonteCarloParallel(double (*f)(point_t *),
         printf("Time: %lf\n", global_time);
         printf("Time points generation: %lf\n", sequential_time);
         printf("Time parallel: %lf\n", global_parallel);
+        printf("Time MPI_Allreduce: %lf\n", global_allreduce);
         free(randPoints);
     } else {
         free(subRandPoints);
