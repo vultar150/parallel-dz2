@@ -5,6 +5,10 @@
 #include <math.h>
 #include "mpi.h"
 
+#ifndef M_PI
+    #define M_PI 3.14159265358979323846
+#endif
+
 const unsigned NUM_OF_POINTS = 1024;
 int myrank, ranksize; // current rank and number of processes in communicator
 
@@ -42,6 +46,7 @@ uint8_t insideArea(point_t *p)
     return p->y * p->y + p->z * p->z <= 1;
 }
 
+
 /**
  * @brief Initializing sendcounts and displs 
  * parameters of the MPI_Scatterv function
@@ -52,12 +57,14 @@ uint8_t insideArea(point_t *p)
  */
 void initScattervParams(int *sendcounts, int *displs)
 {
-    int nmin = (NUM_OF_POINTS / ranksize) * 3;
-    int nextra = NUM_OF_POINTS % ranksize;
+    int nmin = (NUM_OF_POINTS / (ranksize - 1)) * 3;
+    int nextra = NUM_OF_POINTS % (ranksize - 1);
     int k = 0;
 
-    for(unsigned i = 0; i < ranksize; ++i) {
-        sendcounts[i] = i < nextra ? nmin + 3 : nmin;
+    sendcounts[0] = 0; // master process 0 will not receive data
+    displs[0] = 0;
+    for(unsigned i = 1; i < ranksize; ++i) {
+        sendcounts[i] = i < nextra + 1 ? nmin + 3 : nmin;
         displs[i] = k;
         k = k + sendcounts[i];
     }
@@ -101,28 +108,29 @@ void MonteCarloParallel(double (*f)(point_t *),
 
     if (myrank == 0) {
         randPoints = (point_t *) calloc(NUM_OF_POINTS, sizeof(point_t));
+    } else {
+        subRandPoints = (point_t *) calloc(sendcounts[myrank], sizeof(double));
     }
-
-    subRandPoints = (point_t *) calloc(sendcounts[myrank], sizeof(double));
 
     while (fabs(mc_res - analytical_res) > eps) {
         if (myrank == 0) {
             sequential_start = MPI_Wtime();
-            pointsGenerator(randPoints, NUM_OF_POINTS);
+            pointsGen(randPoints, NUM_OF_POINTS);
             sequential_time += MPI_Wtime() - sequential_start;
         }
         n += NUM_OF_POINTS;
-
         MPI_Scatterv((double *) randPoints, sendcounts, displs, MPI_DOUBLE, 
                      (double *) subRandPoints, sendcounts[myrank], MPI_DOUBLE,
                      0, MPI_COMM_WORLD);
-
-        parallel_start = MPI_Wtime();
-        for (unsigned i = 0; i < sendcounts[myrank] / 3; ++i) {
-            point_t *p = &subRandPoints[i];
-            if (inside(p)) { local_sum += f(p); }
+        
+        if (myrank != 0) {
+            parallel_start = MPI_Wtime();
+            for (unsigned i = 0; i < sendcounts[myrank] / 3; ++i) {
+                point_t *p = &subRandPoints[i];
+                if (inside(p)) { local_sum += f(p); }
+            }
+            parallel_time += MPI_Wtime() - parallel_start;
         }
-        parallel_time += MPI_Wtime() - parallel_start;
 
         MPI_Allreduce(&local_sum, &global_tmp, 1, MPI_DOUBLE, 
                       MPI_SUM, MPI_COMM_WORLD);
@@ -130,10 +138,8 @@ void MonteCarloParallel(double (*f)(point_t *),
         mc_res = vol * global_sum / n;
         local_sum = 0.0;
     }
-
     double time = MPI_Wtime() - start;
     double global_time;
-    double global_sequential;
     double global_parallel;
 
     MPI_Reduce(&time, &global_time, 1, MPI_DOUBLE, 
@@ -150,8 +156,9 @@ void MonteCarloParallel(double (*f)(point_t *),
         printf("Time points generation: %lf\n", sequential_time);
         printf("Time parallel: %lf\n", global_parallel);
         free(randPoints);
+    } else {
+        free(subRandPoints);
     }
-    free(subRandPoints);
     MPI_Barrier(MPI_COMM_WORLD);
 }
 
@@ -177,6 +184,7 @@ int main(int argc, char **argv)
 
     MonteCarloParallel(func, insideArea, pointsGenerator, 
                        volume, analytical_res, eps);
+
     MPI_Finalize();
     return 0;
 }
