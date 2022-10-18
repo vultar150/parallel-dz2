@@ -63,14 +63,14 @@ void initScattervParams(int *sendcounts, int *displs);
  * @param pointsGen points generator
  * @param vol the volume of the parallelepiped П
  * which completely contains the integration area G
- * @param analytical_res value of the integral 
+ * @param analyticalRes value of the integral 
  * calculated analytically
  * @param eps calculation accuracy
  */
 void MonteCarloParallel(double (*f)(point_t *),
                         void (*pointsGen)(point_t *, unsigned),
                         const double vol,
-                        const double analytical_res,
+                        const double analyticalRes,
                         const double eps);
 
 
@@ -88,14 +88,14 @@ int main(int argc, char **argv)
     MPI_Comm_size(MPI_COMM_WORLD, &ranksize);
     MPI_Barrier(MPI_COMM_WORLD);
     
-    const double analytical_res = 4.0 * M_PI / 3.0; 
+    const double analyticalRes = 4.0 * M_PI / 3.0; 
     const double volume = 8;
-    double eps = 1.0e-4; // default eps value
+    double eps = 1.0e-5; // default eps value
 
     if (argc >= 2) sscanf(argv[1], "%lf", &eps);  
 
     MonteCarloParallel(func, pointsGenerator, 
-                       volume, analytical_res, eps);
+                       volume, analyticalRes, eps);
 
     MPI_Finalize();
     return 0;
@@ -147,21 +147,18 @@ void initScattervParams(int *sendcounts, int *displs)
 void MonteCarloParallel(double (*f)(point_t *),
                         void (*pointsGen)(point_t *, unsigned),
                         const double vol,
-                        const double analytical_res,
+                        const double analyticalRes,
                         const double eps)
 {
     srand(1);
-    double global_sum = 0.0; // the sum from all processes on all already generated points
-    double global_sum_tmp = 0.0; // the sum from all processes on one portion of points
-    double local_sum = 0.0; // the sum from one process on one portion of points
-    double mc_res = 0.0; // Monte Carlo result
+    double globalSum = 0.0; // the sum from all processes on all already generated points
+    double globalSumTmp = 0.0; // the sum from all processes on one portion of points
+    double localSum = 0.0; // the sum from one process on one portion of points
+    double MCres = 0.0; // Monte Carlo result
     unsigned n = 0; // counter of the number of generated points
     int sendcounts[ranksize], displs[ranksize]; // MPI_Scatterv parameters
 
     double time = 0.0;
-    double sequential_time = 0.0;
-    double parallel_time = 0.0;
-    double allreduce_time = 0.0;
 
     time -= MPI_Wtime();
 
@@ -177,13 +174,11 @@ void MonteCarloParallel(double (*f)(point_t *),
         subRandPoints = (point_t *) calloc(procPointCount, sizeof(point_t));
     }
 
-    char needBreak = fabs(mc_res - analytical_res) <= eps;
+    char needBreak = fabs(MCres - analyticalRes) <= eps;
 
     while (!needBreak) {
         if (myrank == 0) {
-            sequential_time -= MPI_Wtime();
             pointsGen(randPoints, NUM_OF_POINTS);
-            sequential_time += MPI_Wtime();
             n += NUM_OF_POINTS;
         }
         MPI_Scatterv((double *) randPoints, sendcounts, displs, MPI_DOUBLE, 
@@ -191,45 +186,34 @@ void MonteCarloParallel(double (*f)(point_t *),
                      0, MPI_COMM_WORLD);
         
         if (myrank != 0) {
-            parallel_time -= MPI_Wtime();
-            local_sum = 0.0;
-            for (unsigned i=0; i < procPointCount; ++i) 
-                local_sum += f(&subRandPoints[i]);
-            parallel_time += MPI_Wtime();
+            localSum = 0.0;
+            for (unsigned i=0; i < procPointCount; ++i) {
+                point_t *p = &subRandPoints[i];
+                localSum += f(p);
+            }
         }
 
-        if (myrank != 0) allreduce_time -= MPI_Wtime();
-        MPI_Reduce(&local_sum, &global_sum_tmp, 1, MPI_DOUBLE, 
+        MPI_Reduce(&localSum, &globalSumTmp, 1, MPI_DOUBLE, 
                    MPI_SUM, 0, MPI_COMM_WORLD);
         if (myrank == 0) {
-            global_sum += global_sum_tmp;
-            mc_res = vol * global_sum / n;
-            needBreak = fabs(mc_res - analytical_res) <= eps;
+            globalSum += globalSumTmp;
+            MCres = vol * globalSum / n;
+            needBreak = fabs(MCres - analyticalRes) <= eps;
         }
         MPI_Bcast(&needBreak, 1, MPI_CHAR, 0, MPI_COMM_WORLD);
-        if (myrank != 0) allreduce_time += MPI_Wtime();
     }
     time += MPI_Wtime();
     double global_time;
-    double global_parallel;
-    double global_allreduce;
 
     MPI_Reduce(&time, &global_time, 1, MPI_DOUBLE, 
                MPI_MAX, 0, MPI_COMM_WORLD);
-    MPI_Reduce(&parallel_time, &global_parallel, 1, MPI_DOUBLE, 
-               MPI_MAX, 0, MPI_COMM_WORLD);
-    MPI_Reduce(&allreduce_time, &global_allreduce, 1, MPI_DOUBLE, 
-               MPI_MAX, 0, MPI_COMM_WORLD);
 
     if (myrank == 0) {
-        double abs_err = fabs(mc_res - analytical_res);
-        printf("Monte Carlo result: %.10lf\n", mc_res);
+        double abs_err = fabs(MCres - analyticalRes);
+        printf("Monte Carlo result: %.10lf\n", MCres);
         printf("Abs error: %.10lf\n", abs_err);
         printf("Number of points: %d\n", n);
         printf("Time: %lf\n", global_time);
-        printf("Time points generation: %lf\n", sequential_time);
-        printf("Time parallel: %lf\n", global_parallel);
-        printf("Time MPI_Allreduce: %lf\n", global_allreduce);
         free(randPoints);
     } else {
         free(subRandPoints);
