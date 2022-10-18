@@ -144,17 +144,6 @@ void initScattervParams(int *sendcounts, int *displs)
 }
 
 
-double getFSum(double (*f) (point_t *), point_t *points, unsigned n)
-{
-    double sum = 0.0;
-    for (unsigned i = 0; i < n; ++i) {
-        point_t *p = &points[i];
-        sum += f(p);
-    }
-    return sum;
-}
-
-
 void MonteCarloParallel(double (*f)(point_t *),
                         void (*pointsGen)(point_t *, unsigned),
                         const double vol,
