@@ -1,6 +1,7 @@
 #!/bin/bash
 
-mkdir output err
+mkdir -p output 
+mkdir -p err
 
 for ((i = 2; i <= 32; i*=2))
 do
