@@ -1,0 +1,52 @@
+Sender: LSF System <lsfadmin@polus-c2-ib.bmc.hpc.cs.msu.ru>
+Subject: Job 903222: <# this file was automaticly created by mpisubmit.pl script for edu-cmc-skmodel22-621-04 #;source /polusfs/setenv/setup.SMPI;#BSUB -n 16;#BSUB -W 00:15;#BSUB -o output/mainout16-5.0e-6.out;#BSUB -e err/mainerr16-5.0e-6.err;OMP_NUM_THREADS=1 mpiexec a.out 5.0e-6> in cluster <MSUCluster> Done
+
+Job <# this file was automaticly created by mpisubmit.pl script for edu-cmc-skmodel22-621-04 #;source /polusfs/setenv/setup.SMPI;#BSUB -n 16;#BSUB -W 00:15;#BSUB -o output/mainout16-5.0e-6.out;#BSUB -e err/mainerr16-5.0e-6.err;OMP_NUM_THREADS=1 mpiexec a.out 5.0e-6> was submitted from host <polus-ib.bmc.hpc.cs.msu.ru> by user <edu-cmc-skmodel22-621-04> in cluster <MSUCluster> at Fri Oct 21 08:55:53 2022
+Job was executed on host(s) <16*polus-c2-ib.bmc.hpc.cs.msu.ru>, in queue <short>, as user <edu-cmc-skmodel22-621-04> in cluster <MSUCluster> at Fri Oct 21 08:56:20 2022
+</home_edu/edu-cmc-skmodel22-621/edu-cmc-skmodel22-621-04> was used as the home directory.
+</home_edu/edu-cmc-skmodel22-621/edu-cmc-skmodel22-621-04/parallel-dz2> was used as the working directory.
+Started at Fri Oct 21 08:56:20 2022
+Terminated at Fri Oct 21 08:56:31 2022
+Results reported at Fri Oct 21 08:56:31 2022
+
+Your job looked like:
+
+------------------------------------------------------------
+# LSBATCH: User input
+# this file was automaticly created by mpisubmit.pl script for edu-cmc-skmodel22-621-04 #
+source /polusfs/setenv/setup.SMPI
+#BSUB -n 16
+#BSUB -W 00:15
+#BSUB -o output/mainout16-5.0e-6.out
+#BSUB -e err/mainerr16-5.0e-6.err
+OMP_NUM_THREADS=1 mpiexec a.out 5.0e-6
+
+------------------------------------------------------------
+
+Successfully completed.
+
+Resource usage summary:
+
+    CPU time :                                   140.83 sec.
+    Max Memory :                                 858 MB
+    Average Memory :                             643.75 MB
+    Total Requested Memory :                     -
+    Delta Memory :                               -
+    Max Swap :                                   -
+    Max Processes :                              20
+    Max Threads :                                57
+    Run time :                                   10 sec.
+    Turnaround time :                            38 sec.
+
+The output (if any) follows:
+
+Monte Carlo result: 4.1887867739
+Abs error: 0.0000034309
+Number of points: 87621632
+Time: 8.705094
+
+
+PS:
+
+Read file <err/mainerr16-5.0e-6.err> for stderr output of this job.
+
